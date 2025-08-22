@@ -17,17 +17,20 @@ public static class Optional
     /// </summary>
     public static object ChangeType(Optional<object> optional, Type targetType)
     {
-        optional.TryGetContainedValue(out var containedValue);
+        if (optional.TryGetOptionalValue(out var descriptor))
+        {
+            return ChangeOptionalType(descriptor!.ContainedValue, targetType);
+        }
 
-        return ChangeOptionalType(containedValue, targetType);
+        return ChangeOptionalType(null, targetType);
     }
 
     /// <summary>
     ///     Whether the <see cref="value" /> is of type <see cref="Optional{T}" />, and if so returns the contained value
     /// </summary>
-    public static bool IsOptional(this object? value, out object? contained)
+    public static bool IsOptional(this object? value, out OptionalDescriptor? descriptor)
     {
-        return value.TryGetContainedValue(out contained);
+        return value.TryGetOptionalValue(out descriptor);
     }
 
     /// <summary>
@@ -36,22 +39,6 @@ public static class Optional
     public static bool IsOptionalType(Type type)
     {
         return type.IsConstructedGenericType && type.GetGenericTypeDefinition() == typeof(Optional<>);
-    }
-
-    /// <summary>
-    ///     Whether the <see cref="type" /> is an optional type, and if so return the <see cref="containedType" />
-    /// </summary>
-    public static bool IsOptionalType(Type type, out Type? containedType)
-    {
-        var isOptional = IsOptionalType(type);
-        if (!isOptional)
-        {
-            containedType = null;
-            return false;
-        }
-
-        containedType = containedType = type.GetGenericArguments()[0];
-        return true;
     }
 
     /// <summary>
@@ -69,20 +56,9 @@ public static class Optional
     {
         value.ThrowIfNullParameter(nameof(value));
 
-        if (value.TryGetContainedValue(out var contained))
+        if (value.IsOptional(out _))
         {
-            if (contained.NotExists())
-            {
-                return Optional<TValue>.None;
-            }
-
-            if (contained.GetType() == typeof(TValue))
-            {
-                return value;
-            }
-
-            // ReSharper disable once TailRecursiveCall
-            return Some<TValue>((TValue)contained);
+            throw new ArgumentOutOfRangeException(nameof(value), value, Resources.Optional_WrappingOptional);
         }
 
         return new Optional<TValue>(value);
@@ -279,21 +255,29 @@ public static class Optional
     }
 
     /// <summary>
-    ///     Returns the type of the contained optional type.
-    ///     For example this would return <see cref="TValue" /> if <see cref="type" /> was <see cref="Optional{TValue}" />
+    ///     Whether the <see cref="type" /> is of type <see cref="Optional{T}" />,
+    ///     and if so, returns the optional type.
     /// </summary>
-    public static bool TryGetContainedType(Type type, out Type? containedType)
+    public static bool TryGetOptionalType(Type type, out Type? containedType)
     {
-        containedType = null;
-        return IsOptionalType(type, out containedType);
+        var isOptional = IsOptionalType(type);
+        if (!isOptional)
+        {
+            containedType = null;
+            return false;
+        }
+
+        containedType = containedType = type.GetGenericArguments()[0];
+        return true;
     }
 
     /// <summary>
-    ///     Whether the <see cref="value" /> is of type <see cref="Optional{T}" />, and if so returns the contained value
+    ///     Whether the <see cref="value" /> is of type <see cref="Optional{T}" />,
+    ///     and if so, returns the optional type and value
     /// </summary>
-    public static bool TryGetContainedValue(this object? value, out object? contained)
+    public static bool TryGetOptionalValue(this object? value, out OptionalDescriptor? descriptor)
     {
-        contained = null;
+        descriptor = null;
         if (value.NotExists())
         {
             return false;
@@ -309,8 +293,10 @@ public static class Optional
         var typeOfNewOptional = typeof(Optional<>).MakeGenericType(typeOfContainedValue);
         var valueOrDefault = typeOfNewOptional.InvokeMember(nameof(Optional<object>.ValueOrDefault),
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetProperty, null, value, null);
+        var hasValue = (bool)typeOfNewOptional.InvokeMember(nameof(Optional<object>.HasValue),
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetProperty, null, value, null)!;
 
-        contained = valueOrDefault;
+        descriptor = new OptionalDescriptor(typeOfContainedValue, valueOrDefault!, !hasValue);
         return true;
     }
 
@@ -324,8 +310,28 @@ public static class Optional
 }
 
 /// <summary>
+///     A descriptor for an optional value
+/// </summary>
+public class OptionalDescriptor
+{
+    public OptionalDescriptor(Type containedType, object containedValue, bool isNone)
+    {
+        ContainedType = containedType;
+        ContainedValue = containedValue;
+        IsNone = isNone;
+    }
+
+    public Type ContainedType { get; }
+
+    public object ContainedValue { get; }
+
+    public bool IsNone { get; }
+}
+
+/// <summary>
 ///     Provides an optional type that combines a <see cref="Value" /> and a <see cref="HasValue" /> which indicates
 ///     whether the <see cref="Value" /> is meaningful.
+///     You should not nest <see cref="OPtional{TValue}" /> type within each other
 /// </summary>
 [DebuggerStepThrough]
 public readonly struct Optional<TValue> : IEquatable<Optional<TValue>>
