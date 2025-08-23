@@ -66,13 +66,16 @@ public sealed class Setting : ValueObjectBase<Setting>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new Setting(parts[0]!, parts[1].ToEnumOrDefault(SettingValueType.String), parts[2].ToBool());
+            return new Setting(
+                parts[0],
+                parts[1].Value.ToEnumOrDefault(SettingValueType.String),
+                parts[2].Value.ToBool());
         };
     }
 
-    protected override IEnumerable<object> GetAtomicValues()
+    protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new[] { Value, ValueType, IsEncrypted };
+        return [Value, ValueType, IsEncrypted];
     }
 
     public static Result<Setting, Error> From(string stringValue, SettingValueType valueType, bool isEncrypted,

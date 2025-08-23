@@ -45,13 +45,14 @@ public sealed class LicensePlate : ValueObjectBase<LicensePlate>
         return (property, container) =>
         {
             var parts = RehydrateToList(property, false);
-            return new LicensePlate(Jurisdiction.Rehydrate()(parts[0]!, container),
-                NumberPlate.Rehydrate()(parts[1]!, container));
+            return new LicensePlate(
+                Jurisdiction.Rehydrate()(parts[0], container),
+                NumberPlate.Rehydrate()(parts[1], container));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object[] { Jurisdiction, Number };
+        return [Jurisdiction, Number];
     }
 }

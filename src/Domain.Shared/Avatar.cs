@@ -38,12 +38,14 @@ public sealed class Avatar : ValueObjectBase<Avatar>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new Avatar(parts[0].ToId(), parts[1]!);
+            return new Avatar(
+                parts[0].Value.ToId(),
+                parts[1]);
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object[] { ImageId, Url };
+        return [ImageId, Url];
     }
 }

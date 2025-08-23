@@ -1,5 +1,6 @@
 using Common;
 using Common.Extensions;
+using Domain.Common.Extensions;
 using Domain.Common.ValueObjects;
 using Domain.Interfaces;
 using Domain.Interfaces.ValueObjects;
@@ -43,7 +44,7 @@ public sealed class AuthToken : ValueObjectBase<AuthToken>
             return Error.Validation(Resources.AuthToken_InvalidEncryptedValue);
         }
 
-        return new AuthToken(type, encryptedValue, expiresOn);
+        return new AuthToken(type, encryptedValue, expiresOn.ToOptional());
     }
 
     public static Result<AuthToken, Error> Create(Domain.Events.Shared.Identities.ProviderAuthTokens.AuthToken token)
@@ -51,7 +52,7 @@ public sealed class AuthToken : ValueObjectBase<AuthToken>
         return Create(token.Type.ToEnumOrDefault(AuthTokenType.OtherToken), token.EncryptedValue, token.ExpiresOn);
     }
 
-    private AuthToken(AuthTokenType type, string encryptedValue, DateTime? expiresOn)
+    private AuthToken(AuthTokenType type, string encryptedValue, Optional<DateTime> expiresOn)
     {
         Type = type;
         EncryptedValue = encryptedValue;
@@ -60,7 +61,7 @@ public sealed class AuthToken : ValueObjectBase<AuthToken>
 
     public string EncryptedValue { get; }
 
-    public DateTime? ExpiresOn { get; }
+    public Optional<DateTime> ExpiresOn { get; }
 
     public AuthTokenType Type { get; }
 
@@ -70,14 +71,16 @@ public sealed class AuthToken : ValueObjectBase<AuthToken>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new AuthToken(parts[0].ToEnumOrDefault(AuthTokenType.AccessToken), parts[1]!,
-                parts[2]?.FromIso8601());
+            return new AuthToken(
+                parts[0].Value.ToEnumOrDefault(AuthTokenType.AccessToken),
+                parts[1],
+                parts[2].ToOptional(val => val.FromIso8601()));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object?[] { Type, EncryptedValue, ExpiresOn };
+        return [Type, EncryptedValue, ExpiresOn];
     }
 
     [SkipImmutabilityCheck]

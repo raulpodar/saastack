@@ -34,13 +34,13 @@ public sealed class Settings : ValueObjectBase<Settings>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new Settings(parts[0]!.FromJson<Dictionary<string, Setting>>()!);
+            return new Settings(parts[0].Value.FromJson<Dictionary<string, Setting>>()!);
         };
     }
 
-    protected override IEnumerable<object> GetAtomicValues()
+    protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new[] { Properties.ToJson()! };
+        return [Properties.ToJson()!];
     }
 
     public Result<Settings, Error> AddOrUpdate(string name, object value, bool isEncrypted)

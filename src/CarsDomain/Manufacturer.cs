@@ -71,13 +71,15 @@ public sealed class Manufacturer : ValueObjectBase<Manufacturer>
         return (property, container) =>
         {
             var parts = RehydrateToList(property, false);
-            return new Manufacturer(Year.Rehydrate()(parts[0]!, container), Name.Rehydrate()(parts[1]!, container),
-                Name.Rehydrate()(parts[2]!, container));
+            return new Manufacturer(
+                Year.Rehydrate()(parts[0], container),
+                Name.Rehydrate()(parts[1], container),
+                Name.Rehydrate()(parts[2], container));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object[] { Year, Make, Model };
+        return [Year, Make, Model];
     }
 }

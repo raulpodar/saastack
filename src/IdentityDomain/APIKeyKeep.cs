@@ -48,13 +48,15 @@ public sealed class APIKeyKeep : ValueObjectBase<APIKeyKeep>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new APIKeyKeep(parts[0]!, parts[1]!);
+            return new APIKeyKeep(
+                parts[0],
+                parts[1]);
         };
     }
 
-    protected override IEnumerable<object> GetAtomicValues()
+    protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object[] { Token, KeyHash };
+        return [Token, KeyHash];
     }
 
     public Result<APIKeyKeep, Error> ChangeKey(IAPIKeyHasherService apiKeyHasherService, string token, string keyHash)

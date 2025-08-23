@@ -46,13 +46,15 @@ public sealed class BillingProvider : ValueObjectBase<BillingProvider>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new BillingProvider(parts[0]!, parts[1]!.FromJson<SubscriptionMetadata>()!);
+            return new BillingProvider(
+                parts[0],
+                parts[1].Value.FromJson<SubscriptionMetadata>()!);
         };
     }
 
-    protected override IEnumerable<object> GetAtomicValues()
+    protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object[] { Name, State.ToJson(casing: StringExtensions.JsonCasing.Pascal)! };
+        return [Name, State.ToJson(casing: StringExtensions.JsonCasing.Pascal)!];
     }
 
     public BillingProvider ChangeState(SubscriptionMetadata state)

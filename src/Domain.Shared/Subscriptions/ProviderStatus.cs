@@ -1,5 +1,6 @@
 using Common;
 using Common.Extensions;
+using Domain.Common.Extensions;
 using Domain.Common.ValueObjects;
 using Domain.Interfaces;
 using JetBrains.Annotations;
@@ -52,18 +53,15 @@ public sealed class ProviderStatus : ValueObjectBase<ProviderStatus>
         {
             var parts = RehydrateToList(property, false);
             return new ProviderStatus(
-                parts[0].ToEnumOrDefault(BillingSubscriptionStatus.Unsubscribed),
-                parts[1].FromValueOrNone(val => val.FromIso8601()),
-                parts[2].ToBool());
+                parts[0].Value.ToEnumOrDefault(BillingSubscriptionStatus.Unsubscribed),
+                parts[1].ToOptional(val => val.FromIso8601()),
+                parts[2].Value.ToBool());
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new[]
-        {
-            Status, CanceledDateUtc.ValueOrNull, CanBeUnsubscribed
-        };
+        return [Status, CanceledDateUtc.ValueOrNull, CanBeUnsubscribed];
     }
 }
 

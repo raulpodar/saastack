@@ -1,5 +1,6 @@
 using Common;
 using Common.Extensions;
+using Domain.Common.Extensions;
 using Domain.Common.ValueObjects;
 using Domain.Interfaces;
 using JetBrains.Annotations;
@@ -38,18 +39,15 @@ public sealed class ProviderPaymentMethod : ValueObjectBase<ProviderPaymentMetho
         {
             var parts = RehydrateToList(property, false);
             return new ProviderPaymentMethod(
-                parts[0].ToEnumOrDefault(BillingPaymentMethodType.None),
-                parts[1].ToEnumOrDefault(BillingPaymentMethodStatus.Invalid),
-                parts[2].FromValueOrNone(value => value.FromIso8601DateOnly()));
+                parts[0].Value.ToEnumOrDefault(BillingPaymentMethodType.None),
+                parts[1].Value.ToEnumOrDefault(BillingPaymentMethodStatus.Invalid),
+                parts[2].ToOptional(value => value.FromIso8601DateOnly()));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new[]
-        {
-            Type, Status, ExpiresOn.ToValueOrNull(val => val.ToIso8601())
-        };
+        return [Type, Status, ExpiresOn];
     }
 }
 

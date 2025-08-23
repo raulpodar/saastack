@@ -1,5 +1,6 @@
 using Common;
 using Common.Extensions;
+using Domain.Common.Extensions;
 using Domain.Common.ValueObjects;
 using Domain.Interfaces;
 using Domain.Services.Shared;
@@ -46,7 +47,7 @@ public sealed class OAuth2TokenMemento : ValueObjectBase<OAuth2TokenMemento>
             return Error.Validation(Resources.OAuth2TokenMemento_InvalidDigestValue);
         }
 
-        return new OAuth2TokenMemento(type, digestValue, expiresOn);
+        return new OAuth2TokenMemento(type, digestValue, expiresOn.ToOptional());
     }
 
     public static Result<OAuth2TokenMemento, Error> Create(AuthToken token,
@@ -58,7 +59,7 @@ public sealed class OAuth2TokenMemento : ValueObjectBase<OAuth2TokenMemento>
         return Create(token.Type, digest, token.ExpiresOn);
     }
 
-    private OAuth2TokenMemento(AuthTokenType type, string digestValue, DateTime? expiresOn)
+    private OAuth2TokenMemento(AuthTokenType type, string digestValue, Optional<DateTime> expiresOn)
     {
         Type = type;
         DigestValue = digestValue;
@@ -67,7 +68,7 @@ public sealed class OAuth2TokenMemento : ValueObjectBase<OAuth2TokenMemento>
 
     public string DigestValue { get; }
 
-    public DateTime? ExpiresOn { get; }
+    public Optional<DateTime> ExpiresOn { get; }
 
     public AuthTokenType Type { get; }
 
@@ -77,14 +78,16 @@ public sealed class OAuth2TokenMemento : ValueObjectBase<OAuth2TokenMemento>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new OAuth2TokenMemento(parts[0].ToEnumOrDefault(AuthTokenType.AccessToken), parts[1]!,
-                parts[2]?.FromIso8601());
+            return new OAuth2TokenMemento(
+                parts[0].Value.ToEnumOrDefault(AuthTokenType.AccessToken),
+                parts[1],
+                parts[2].ToOptional(val => val.FromIso8601()));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object?[] { Type, ExpiresOn, DigestValue };
+        return [Type, ExpiresOn, DigestValue];
     }
 
     private static bool IsValidPlainTokenValue(string token)

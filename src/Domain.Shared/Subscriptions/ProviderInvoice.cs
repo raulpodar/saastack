@@ -1,5 +1,6 @@
 using Common;
 using Common.Extensions;
+using Domain.Common.Extensions;
 using Domain.Common.ValueObjects;
 using Domain.Interfaces;
 using JetBrains.Annotations;
@@ -59,14 +60,15 @@ public sealed class ProviderInvoice : ValueObjectBase<ProviderPlanPeriod>
         return (property, container) =>
         {
             var parts = RehydrateToList(property, false);
-            return new ProviderInvoice(parts[0].ToDecimalOrDefault(0),
-                CurrencyCode.Rehydrate()(parts[1]!, container),
-                parts[2].FromValueOrNone(val => val.FromIso8601()));
+            return new ProviderInvoice(
+                parts[0].Value.ToDecimalOrDefault(0),
+                CurrencyCode.Rehydrate()(parts[1], container),
+                parts[2].ToOptional(val => val.FromIso8601()));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new[] { Amount, CurrencyCode.ToString(), NextUtc.ValueOrNull };
+        return [Amount, CurrencyCode.ToString(), NextUtc];
     }
 }

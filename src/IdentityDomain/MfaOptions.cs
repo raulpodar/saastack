@@ -1,5 +1,6 @@
 using Common;
 using Common.Extensions;
+using Domain.Common.Extensions;
 using Domain.Common.ValueObjects;
 using Domain.Interfaces;
 using Domain.Interfaces.ValueObjects;
@@ -57,17 +58,17 @@ public sealed class MfaOptions : ValueObjectBase<MfaOptions>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new MfaOptions(parts[0]!.ToBoolOrDefault(false),
-                parts[1]!.ToBoolOrDefault(true),
-                parts[2].FromValueOrNone<string, string>(),
-                parts[3].FromValueOrNone(val => val.FromIso8601()));
+            return new MfaOptions(
+                parts[0].Value.ToBoolOrDefault(false),
+                parts[1].Value.ToBoolOrDefault(true),
+                parts[2],
+                parts[3].ToOptional(val => val.FromIso8601()));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object[]
-            { IsEnabled, CanBeDisabled, AuthenticationToken, AuthenticationTokenExpiresAt };
+        return [IsEnabled, CanBeDisabled, AuthenticationToken, AuthenticationTokenExpiresAt];
     }
 
     [SkipImmutabilityCheck]

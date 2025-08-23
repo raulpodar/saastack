@@ -44,13 +44,15 @@ public sealed class TimeSlot : ValueObjectBase<TimeSlot>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new TimeSlot(parts[0].FromIso8601(), parts[1].FromIso8601());
+            return new TimeSlot(
+                parts[0].Value.FromIso8601(),
+                parts[1].Value.FromIso8601());
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new[] { From.ToIso8601(), To.ToIso8601() };
+        return [From, To];
     }
 }
 

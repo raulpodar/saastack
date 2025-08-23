@@ -39,13 +39,15 @@ public sealed class BillingSubscriber : ValueObjectBase<BillingSubscriber>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new BillingSubscriber(parts[0]!, parts[1]!);
+            return new BillingSubscriber(
+                parts[0],
+                parts[1]);
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object[] { SubscriptionId, SubscriberId };
+        return [SubscriptionId, SubscriberId];
     }
 
     public BillingSubscriber ChangeSubscriber(Identifier subscriberId)

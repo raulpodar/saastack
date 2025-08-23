@@ -37,12 +37,14 @@ public sealed class Membership : ValueObjectBase<Membership>
         return (property, container) =>
         {
             var parts = RehydrateToList(property, false);
-            return new Membership(parts[0]!, Identifier.Rehydrate()(parts[1]!, container));
+            return new Membership(
+                parts[0],
+                Identifier.Rehydrate()(parts[1], container));
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object?[] { OrganizationId, UserId };
+        return [OrganizationId, UserId];
     }
 }

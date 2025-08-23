@@ -40,7 +40,7 @@ public sealed class CausedBy : ValueObjectBase<CausedBy>
 
     public UnavailabilityCausedBy Reason { get; }
 
-    public string? Reference { get; }
+    public Optional<string> Reference { get; }
 
     [UsedImplicitly]
     public static ValueObjectFactory<CausedBy> Rehydrate()
@@ -48,12 +48,14 @@ public sealed class CausedBy : ValueObjectBase<CausedBy>
         return (property, _) =>
         {
             var parts = RehydrateToList(property, false);
-            return new CausedBy(parts[0]!.ToEnum<UnavailabilityCausedBy>(), parts[1]);
+            return new CausedBy(
+                parts[0].Value.ToEnum<UnavailabilityCausedBy>(),
+                parts[1]);
         };
     }
 
     protected override IEnumerable<object?> GetAtomicValues()
     {
-        return new object?[] { Reason, Reference };
+        return [Reason, Reference];
     }
 }

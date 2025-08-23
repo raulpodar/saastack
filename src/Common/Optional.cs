@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Common.Extensions;
+using JetBrains.Annotations;
 
 namespace Common;
 
@@ -16,42 +17,20 @@ public static class Optional
     /// </summary>
     public static object ChangeType(Optional<object> optional, Type targetType)
     {
-        optional.TryGetContainedValue(out var containedValue);
-
-        return ChangeOptionalType(containedValue, targetType);
-    }
-
-    /// <summary>
-    ///     Converts the specified <see cref="value" /> to an <see cref="Optional{TOut}" />
-    ///     using the optional <see cref="converter" /> to convert the value (if any)
-    /// </summary>
-    public static Optional<TOut> FromValueOrNone<TIn, TOut>(this TIn? value, Func<TIn, TOut>? converter = null)
-    {
-        if (value is null)
+        if (optional.TryGetOptionalValue(out var descriptor))
         {
-            return Optional<TOut>.None;
+            return ChangeOptionalType(descriptor!.ContainedValue, targetType);
         }
 
-        if (converter is null)
-        {
-            var changed = Convert.ChangeType(value, typeof(TOut));
-            if (changed.NotExists())
-            {
-                return Optional<TOut>.None;
-            }
-
-            return ((TOut)changed).ToOptional();
-        }
-
-        return converter(value).ToOptional();
+        return ChangeOptionalType(null, targetType);
     }
 
     /// <summary>
     ///     Whether the <see cref="value" /> is of type <see cref="Optional{T}" />, and if so returns the contained value
     /// </summary>
-    public static bool IsOptional(this object? value, out object? contained)
+    public static bool IsOptional(this object? value, out OptionalDescriptor? descriptor)
     {
-        return value.TryGetContainedValue(out contained);
+        return value.TryGetOptionalValue(out descriptor);
     }
 
     /// <summary>
@@ -60,22 +39,6 @@ public static class Optional
     public static bool IsOptionalType(Type type)
     {
         return type.IsConstructedGenericType && type.GetGenericTypeDefinition() == typeof(Optional<>);
-    }
-
-    /// <summary>
-    ///     Whether the <see cref="type" /> is an optional type, and if so return the <see cref="containedType" />
-    /// </summary>
-    public static bool IsOptionalType(Type type, out Type? containedType)
-    {
-        var isOptional = IsOptionalType(type);
-        if (!isOptional)
-        {
-            containedType = null;
-            return false;
-        }
-
-        containedType = containedType = type.GetGenericArguments()[0];
-        return true;
     }
 
     /// <summary>
@@ -93,37 +56,174 @@ public static class Optional
     {
         value.ThrowIfNullParameter(nameof(value));
 
-        if (value.TryGetContainedValue(out var contained))
+        if (value.IsOptional(out _))
         {
-            if (contained is null)
-            {
-                return Optional<TValue>.None;
-            }
-
-            if (contained.GetType() == typeof(TValue))
-            {
-                return value;
-            }
-
-            // ReSharper disable once TailRecursiveCall
-            return Some<TValue>((TValue)contained);
+            throw new ArgumentOutOfRangeException(nameof(value), value, Resources.Optional_WrappingOptional);
         }
 
         return new Optional<TValue>(value);
     }
 
     /// <summary>
-    ///     Converts the <see cref="value" /> to an <see cref="Optional{TValue}" />
+    ///     Converts the specified <see cref="optional" /> to an <see cref="TIn" />
     /// </summary>
-    public static Optional<TValue> ToOptional<TValue>(this TValue? value)
+    // ReSharper disable once UnusedParameter.Global
+    public static TIn? ToNullable<TIn>(this Optional<TIn> optional, ValueTypeTag<TIn>? tag = null)
+        where TIn : struct
     {
-        return value is null
-            ? None<TValue>()
-            : Some<TValue>(value);
+        return optional.ToNullable<TIn, TIn>();
     }
 
     /// <summary>
-    ///     Converts the <see cref="value" /> to an <see cref="Optional" /> opf the specified <see cref="targetType" />
+    ///     Converts the specified <see cref="optional" /> to an <see cref="TIn" />
+    /// </summary>
+    // ReSharper disable once UnusedParameter.Global
+    public static TIn? ToNullable<TIn>(this Optional<TIn?> optional, ValueTypeTag<TIn>? tag = null)
+        where TIn : struct
+    {
+        return optional.ToNullable<TIn?, TIn>();
+    }
+
+    /// <summary>
+    ///     Converts the specified <see cref="optional" /> to an <see cref="TIn" />
+    /// </summary>
+    // ReSharper disable once UnusedParameter.Global
+    public static TIn? ToNullable<TIn>(this Optional<TIn> optional, ReferenceTypeTag<TIn>? tag = null)
+        where TIn : class?
+    {
+        return optional.ToNullable<TIn, TIn>();
+    }
+
+    /// <summary>
+    ///     Converts the specified <see cref="optional" /> to an <see cref="TOut" />
+    /// </summary>
+    public static TOut? ToNullable<TIn, TOut>(this Optional<TIn> optional, Func<TIn, TOut>? converter = null,
+        // ReSharper disable once UnusedParameter.Global
+        ReferenceTypeTag<TOut>? tag = null)
+        where TOut : class?
+    {
+        if (converter.Exists())
+        {
+            return optional.HasValue
+                ? converter(optional.Value)
+                : default;
+        }
+
+        if (!optional.HasValue)
+        {
+            return default;
+        }
+
+        var changed = Convert.ChangeType(optional.Value, typeof(TOut));
+        if (changed.NotExists())
+        {
+            return default;
+        }
+
+        return (TOut)changed;
+    }
+
+    /// <summary>
+    ///     Converts the specified <see cref="optional" /> to an <see cref="TOut" />
+    /// </summary>
+    public static TOut? ToNullable<TIn, TOut>(this Optional<TIn> optional, Func<TIn, TOut?>? converter = null,
+        // ReSharper disable once UnusedParameter.Global
+        ValueTypeTag<TOut>? tag = null)
+        where TOut : struct
+    {
+        if (converter.Exists())
+        {
+            return optional.HasValue
+                ? converter(optional.Value)
+                : null;
+        }
+
+        if (!optional.HasValue)
+        {
+            return null;
+        }
+
+        var changed = Convert.ChangeType(optional.Value, typeof(TOut));
+        if (changed.NotExists())
+        {
+            return null;
+        }
+
+        return (TOut)changed;
+    }
+
+    /// <summary>
+    ///     Converts the specified <see cref="value" /> to an <see cref="Optional{TOut}" />
+    ///     using the optional <see cref="converter" /> to convert the value (if any)
+    /// </summary>
+    public static Optional<TOut> ToOptional<TIn, TOut>(this TIn? value, Func<TIn, TOut> converter,
+        // ReSharper disable once UnusedParameter.Global
+        ReferenceTypeTag<TOut>? tag = null)
+        where TOut : class?
+    {
+        if (value.NotExists())
+        {
+            return Optional<TOut>.None;
+        }
+
+        if (converter.Exists())
+        {
+            return converter(value).ToOptional(tag);
+        }
+
+        var changed = Convert.ChangeType(value, typeof(TOut));
+        if (changed.NotExists())
+        {
+            return Optional<TOut>.None;
+        }
+
+        return ((TOut)changed).ToOptional(tag);
+    }
+
+    /// <summary>
+    ///     Converts the specified <see cref="value" /> to an <see cref="Optional{TOut}" />
+    ///     using the optional <see cref="converter" /> to convert the value (if any)
+    /// </summary>
+    public static Optional<TOut> ToOptional<TIn, TOut>(this TIn? value, Func<TIn, TOut?> converter,
+        // ReSharper disable once UnusedParameter.Global
+        ValueTypeTag<TOut>? tag = null)
+        where TOut : struct
+    {
+        if (value.NotExists())
+        {
+            return Optional<TOut>.None;
+        }
+
+        if (converter.Exists())
+        {
+            var converted = converter(value);
+            return converted.ToOptional(tag);
+        }
+
+        var changed = Convert.ChangeType(value, typeof(TOut));
+        if (changed.NotExists())
+        {
+            return Optional<TOut>.None;
+        }
+
+        return ((TOut?)changed).ToOptional(tag);
+    }
+
+    /// <summary>
+    ///     Converts the <see cref="value" /> to an <see cref="Optional{TValue}" />
+    /// </summary>
+    public static Optional<TValue> ToOptional<TValue>(this TValue? value,
+        // ReSharper disable once UnusedParameter.Global
+        ReferenceTypeTag<TValue>? tag = null)
+        where TValue : class?
+    {
+        return value.Exists()
+            ? Some<TValue>(value)
+            : None<TValue>();
+    }
+
+    /// <summary>
+    ///     Converts the <see cref="value" /> to an <see cref="Optional" /> of the specified <see cref="targetType" />
     /// </summary>
     public static object ToOptional<TValue>(this TValue? value, Type targetType)
     {
@@ -133,7 +233,9 @@ public static class Optional
     /// <summary>
     ///     Converts the <see cref="value" /> to an <see cref="Optional{TValue}" />
     /// </summary>
-    public static Optional<TValue> ToOptional<TValue>(this TValue? value)
+    public static Optional<TValue> ToOptional<TValue>(this TValue? value,
+        // ReSharper disable once UnusedParameter.Global
+        ValueTypeTag<TValue>? tag = null)
         where TValue : struct
     {
         return value.HasValue
@@ -142,22 +244,41 @@ public static class Optional
     }
 
     /// <summary>
-    ///     Returns the type of the contained optional type.
-    ///     For example this would return <see cref="TValue" /> if <see cref="type" /> was <see cref="Optional{TValue}" />
+    ///     Converts the <see cref="value" /> to an <see cref="Optional{TValue}" />
     /// </summary>
-    public static bool TryGetContainedType(Type type, out Type? containedType)
+    public static Optional<TValue> ToOptional<TValue>(this TValue value,
+        // ReSharper disable once UnusedParameter.Global
+        ValueTypeTag<TValue>? tag = null)
+        where TValue : struct
     {
-        containedType = null;
-        return IsOptionalType(type, out containedType);
+        return Some(value);
     }
 
     /// <summary>
-    ///     Whether the <see cref="value" /> is of type <see cref="Optional{T}" />, and if so returns the contained value
+    ///     Whether the <see cref="type" /> is of type <see cref="Optional{T}" />,
+    ///     and if so, returns the optional type.
     /// </summary>
-    public static bool TryGetContainedValue(this object? value, out object? contained)
+    public static bool TryGetOptionalType(Type type, out Type? containedType)
     {
-        contained = null;
-        if (value is null)
+        var isOptional = IsOptionalType(type);
+        if (!isOptional)
+        {
+            containedType = null;
+            return false;
+        }
+
+        containedType = containedType = type.GetGenericArguments()[0];
+        return true;
+    }
+
+    /// <summary>
+    ///     Whether the <see cref="value" /> is of type <see cref="Optional{T}" />,
+    ///     and if so, returns the optional type and value
+    /// </summary>
+    public static bool TryGetOptionalValue(this object? value, out OptionalDescriptor? descriptor)
+    {
+        descriptor = null;
+        if (value.NotExists())
         {
             return false;
         }
@@ -172,8 +293,10 @@ public static class Optional
         var typeOfNewOptional = typeof(Optional<>).MakeGenericType(typeOfContainedValue);
         var valueOrDefault = typeOfNewOptional.InvokeMember(nameof(Optional<object>.ValueOrDefault),
             BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetProperty, null, value, null);
+        var hasValue = (bool)typeOfNewOptional.InvokeMember(nameof(Optional<object>.HasValue),
+            BindingFlags.Instance | BindingFlags.Public | BindingFlags.GetProperty, null, value, null)!;
 
-        contained = valueOrDefault;
+        descriptor = new OptionalDescriptor(typeOfContainedValue, valueOrDefault!, !hasValue);
         return true;
     }
 
@@ -187,8 +310,28 @@ public static class Optional
 }
 
 /// <summary>
+///     A descriptor for an optional value
+/// </summary>
+public class OptionalDescriptor
+{
+    public OptionalDescriptor(Type containedType, object containedValue, bool isNone)
+    {
+        ContainedType = containedType;
+        ContainedValue = containedValue;
+        IsNone = isNone;
+    }
+
+    public Type ContainedType { get; }
+
+    public object ContainedValue { get; }
+
+    public bool IsNone { get; }
+}
+
+/// <summary>
 ///     Provides an optional type that combines a <see cref="Value" /> and a <see cref="HasValue" /> which indicates
-///     whether or not the <see cref="Value" /> is meaningful.
+///     whether the <see cref="Value" /> is meaningful.
+///     You should not nest <see cref="OPtional{TValue}" /> type within each other
 /// </summary>
 [DebuggerStepThrough]
 public readonly struct Optional<TValue> : IEquatable<Optional<TValue>>
@@ -212,10 +355,10 @@ public readonly struct Optional<TValue> : IEquatable<Optional<TValue>>
     public Optional(TValue? value)
     {
         ValueOrDefault = value;
-        ValueOrNull = value is null
+        ValueOrNull = value.NotExists()
             ? null
             : value;
-        HasValue = value is not null;
+        HasValue = value.Exists();
     }
 
     public Optional(Optional<TValue> value)
@@ -422,4 +565,24 @@ public readonly struct Optional<TValue> : IEquatable<Optional<TValue>>
 
         return !(right == left);
     }
+}
+
+/// <summary>
+///     Defines a marker type for value types
+/// </summary>
+// ReSharper disable once UnusedTypeParameter
+[UsedImplicitly]
+public sealed class ValueTypeTag<T>
+    where T : struct
+{
+}
+
+/// <summary>
+///     Defines a marker type for reference types
+/// </summary>
+// ReSharper disable once UnusedTypeParameter
+[UsedImplicitly]
+public sealed class ReferenceTypeTag<T>
+    where T : class?
+{
 }
